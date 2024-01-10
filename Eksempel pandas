@@ -1,0 +1,102 @@
+# Lese inn data fra filen solgtevarer.csv for videre analyse
+import pandas as pd
+
+def read_csv(solgtevarer):
+    try:
+        # Åpner filen for lesing, som et sikkerhetstiltak lukkes den også ved hjelp av pandas biblioteket
+        df = pd.read_csv(solgtevarer)
+        return df
+    except FileNotFoundError:
+        print(f"Filen ble ikke funnet: {solgtevarer}")
+        return None
+    except pd.errors.ParserError: # Viser en feilmelding dersom det er formateringsfeil i filen
+        print("Feil ved lesing av CSV-fil, prøv igjen.")
+        return None
+
+def print_data(df):
+    if df is not None:
+        print("Data fra dokumentet solgtevarer.csv:")
+        print()
+        print(df.to_string())  # Printer datasettet som en string for å vise alle radene
+
+def analyze_data(df):
+        if df is None:
+            return None, None
+        try:
+            # Fjerner duplikater fra filen
+            df.drop_duplicates(inplace=True)
+
+            # Sjekker om kolonnene fra første raden er tilstede
+            mandatory_columns = ["Fornavn", "Etternavn", "Vare", "Farge", "Størrelse", "Antall", "Pris"]
+            missing_columns = [col for col in mandatory_columns if col not in df.columns]
+            if missing_columns:
+                print("Feil: Mangler kolonne i CSV-filen:", ', '.join(missing_columns))
+                return None, None
+
+            # Sjekker for manglende informasjon i kolonnene
+            missing_info = df.isnull().sum()
+            # isnull ser etter manglende verdier og sum kalkulerer manglende verdier i hver kolonne
+            if missing_info.any():
+                print("Feil: mangler informasjon i følgende kolonner:")
+                print(missing_info)
+
+            # Sjekker for feil verdi i kolonnen Størrelse
+            valid_sizes = ["S", "M", "L", "XL", "XXL"]
+            invalid_sizes = df[~df['Størrelse'].str.strip().str.upper().isin(valid_sizes)] # Må forklares
+            if not invalid_sizes.empty:
+                print("Feil: Ugyldig data funnet i 'Størrelse' kolonnen:")
+                print(invalid_sizes)
+
+            # Sjekker rader hvor varen er definert som genser for videre analyse
+            sweater_items = df[df['Vare'].str.strip().str.lower() == 'genser']
+
+            # Teller opp antallet og legger til prisen
+            sweater_count = sweater_items['Antall'].sum()
+            total_income = (sweater_items['Antall'] * sweater_items['Pris']).sum()
+            return sweater_count, total_income
+        except KeyError:
+            print("Feil: kolonne ikke funnet i CSV-filen.")
+            return None, None
+# Skriver analysen til en txt-fil og lagrer denne
+def write_analysis_to_file(filename, sweater_count, total_income):
+    save_to_file = input("Ønsker du å lagre resultatene til en tekstfil ('salgs_analyse_svar.txt')? ja/nei: ")
+    try:
+        if save_to_file.lower() == "ja":
+            with open(filename, 'w') as file:
+                file.write(f"Totalt antall gensere solgt fra datasett solgtevarer.csv: {sweater_count}\n")
+                file.write(f"Total inntekt fra {sweater_count} gensere solgt: {total_income}\n")
+                print()
+            print("Dataanalysen er nå lagret som salgs_analyse_svar.txt")
+
+        elif save_to_file == "nei":
+            print()
+            print("Programmet er ferdig.")
+        else:
+            print("Du må taste inn ja/nei.")
+            save_to_file = input("Ønsker du å lagre resultatene til en tekstfil ('salgs_analyse_svar.txt')? ja/nei: ")
+        print()
+    except IOError:
+        print("Feil ved forsøk på å skrive til fil.")
+
+if __name__ == "__main__":
+    csv_filename = "solgtevarer.csv"
+
+    # Leser CSV-filen
+    data_frame = read_csv(csv_filename)
+
+    # Printer datasettet
+    print_data(data_frame)
+
+    # Analyserer dataene
+    sweater_count, total_income = analyze_data(data_frame)
+
+    if sweater_count is not None and total_income is not None:
+        # Printer the antallet and total inntekt i konsoll
+        print()
+        print("Totalt antall gensere fra datasett:", sweater_count)
+        print(f"Total inntekt fra {sweater_count} gensere solgt: {total_income}\n")
+
+        # Skriver analysen til txt-filen
+        write_analysis_to_file("salgs_analyse_svar.txt", sweater_count, total_income)
+    else:
+        print("Feil oppdaget under dataanalysen. Vennligst sjekk CSV-filen og prøv på nytt.")
